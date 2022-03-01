@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+
+# jupyter
+.ipynb_checkpoints/
+
+# datasets
+dataset/
+BraTS2021_Training_Data.zip
+
+# results
+experiments/

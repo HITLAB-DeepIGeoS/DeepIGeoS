@@ -1,0 +1,35 @@
+{
+  "exp": {
+    "name": "brats3d_pnet_init_train",
+    "gpu_ids": [0],
+    "exp_dir": "experiments/",
+    "max_to_keep_ckpt": 5,
+    "save_val_pred": true
+  },
+  "data": {
+    "data_dir": "./dataset/",
+    "batch_size": 1,
+    "num_workers": 4
+  },
+  "model": {
+    "c_in": 1,
+    "c_blk": 16,
+    "n_classes": 2,
+    "init_init_weights": true
+  },
+  "trainer": {
+    "num_epochs": 50,
+    "loss": "cross_entropy",
+    "optimizer": "sgd",
+    "learning_rate": 0.001,
+    "momentum": 0.99,
+    "weight_decay": 0.0005,
+    "lr_scheduler": "steplr",
+    "step_size": 5,
+    "gamma": 0.5
+  },
+  "logger": {
+    "splits": ["train", "valid"],
+    "metrics": ["loss", "acc_0", "acc_1", "iou_0", "iou_1", "dsc_0", "dsc_1"]
+  }
+}
