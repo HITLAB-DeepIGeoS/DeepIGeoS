@@ -117,24 +117,31 @@ class Brats3dRnetTrainer:
 
         iter_cnt = 0
         self.model.train()
-        for (inputs, true_labels) in tqdm(self.dataloaders["train"], 
-                                          desc="train phase",
-                                          total=len(self.dataloaders["train"])):
+        for i, (inputs, true_labels) in tqdm(enumerate(self.dataloaders["train"]), 
+                                                       desc="train phase",
+                                                       total=len(self.dataloaders["train"])):
             iter_cnt += 1
 
+            image_paths = list(self.dataloaders["train"].dataset.image_paths[i * self.config.data.batch_size : (i + 1) * self.config.data.batch_size])
             inputs = inputs.to(self.config.exp.device) # (N, C, W, H, D)
             true_labels = true_labels.to(self.config.exp.device).type(torch.long) # (N, W, H, D)
             with torch.no_grad():
                 pred_logits = self.pnet(inputs)
 
             pred_labels = torch.argmax(pred_logits, dim=1)
-            fore_dist_map, back_dist_map = get_geodismaps(inputs.to("cpu"), true_labels.to("cpu"), pred_labels.to("cpu"))
+            fore_dist_map, back_dist_map = get_geodismaps(image_paths, 
+                                                          true_labels.to("cpu"), 
+                                                          pred_labels.to("cpu"), 
+                                                          self.dataloaders["train"].dataset.transform)
+
+            fore_dist_map = torch.Tensor(fore_dist_map)
+            back_dist_map = torch.Tensor(back_dist_map)
 
             rnet_inputs = torch.cat([
                 inputs,
                 pred_labels.unsqueeze_(dim=1), 
-                torch.Tensor(fore_dist_map).unsqueeze_(dim=1).to(self.config.exp.device), 
-                torch.Tensor(back_dist_map).unsqueeze_(dim=1).to(self.config.exp.device)
+                fore_dist_map.to(self.config.exp.device), 
+                back_dist_map.to(self.config.exp.device)
             ], dim=1)
 
             pred_logits = self.model(rnet_inputs)
@@ -156,6 +163,17 @@ class Brats3dRnetTrainer:
                 cumu_dscs[i] += dsc(pred_onehot[:, i, ...],
                                     true_onehot[:, i, ...]) / inputs.shape[0]
 
+            #-------------------- for debugging -------------------------#
+            temp_logs = {}
+            temp_logs["loss"] = cumu_loss / iter_cnt
+            for i in range(self.config.model.n_classes):
+                temp_logs[f"acc_{1}"] = cumu_accs[i] / iter_cnt
+                temp_logs[f"iou_{1}"] = cumu_ious[i] / iter_cnt
+                temp_logs[f"dsc_{1}"] = cumu_dscs[i] / iter_cnt
+
+            print(temp_logs)
+            #-------------------- for debugging -------------------------#
+
         logs = {}
         logs["loss"] = cumu_loss / iter_cnt
         for i in range(self.config.model.n_classes):
@@ -174,22 +192,30 @@ class Brats3dRnetTrainer:
         iter_cnt = 0
         self.model.eval()
         with torch.no_grad():
-            for (inputs, true_labels) in tqdm(self.dataloaders["valid"], 
-                                              desc="valid phase",
-                                              total=len(self.dataloaders["valid"])):
+            for i, (inputs, true_labels) in tqdm(enumerate(self.dataloaders["valid"]), 
+                                                 desc="valid phase",
+                                                 total=len(self.dataloaders["valid"])):
                 iter_cnt += 1
 
+                image_paths = list(self.dataloaders["valid"].dataset.image_paths[i * self.config.data.batch_size : (i + 1) * self.config.data.batch_size])
                 inputs = inputs.to(self.config.exp.device) # (N, C, W, H, D)
                 true_labels = true_labels.to(self.config.exp.device).type(torch.long) # (N, W, H, D)
                 pred_logits = self.pnet(inputs)
 
                 pred_labels = torch.argmax(pred_logits, dim=1)
-                fore_dist_map, back_dist_map = get_geodismaps(inputs.to("cpu"), true_labels.to("cpu"), pred_labels.to("cpu"))
+                fore_dist_map, back_dist_map = get_geodismaps(image_paths, 
+                                                              true_labels.to("cpu"), 
+                                                              pred_labels.to("cpu"), 
+                                                              self.dataloaders["train"].dataset.transform)
+
+                fore_dist_map = torch.Tensor(fore_dist_map)
+                back_dist_map = torch.Tensor(back_dist_map)
+
                 rnet_inputs = torch.cat([
                     inputs,
                     pred_labels.unsqueeze_(dim=1), 
-                    torch.Tensor(fore_dist_map).unsqueeze_(dim=1).to(self.config.exp.device), 
-                    torch.Tensor(back_dist_map).unsqueeze_(dim=1).to(self.config.exp.device)
+                    fore_dist_map.to(self.config.exp.device), 
+                    back_dist_map.to(self.config.exp.device)
                 ], dim=1)
 
                 pred_logits = self.model(rnet_inputs)
@@ -222,9 +248,9 @@ class Brats3dRnetTrainer:
         create_dirs([val_save_dir_epoch])
 
         for image_path, label_path in tqdm(zip(self.dataloaders["valid"].dataset.image_paths,
-                                   self.dataloaders["valid"].dataset.label_paths),
-                               desc="pred & save",
-                               total=len(self.dataloaders["valid"].dataset.image_paths)):
+                                               self.dataloaders["valid"].dataset.label_paths),
+                                               desc="pred & save",
+                                               total=len(self.dataloaders["valid"].dataset.image_paths)):
             input_subject = tio.Subject(
                 image = tio.ScalarImage(image_path),
                 label = tio.LabelMap(label_path)
@@ -237,12 +263,19 @@ class Brats3dRnetTrainer:
             with torch.no_grad():
                 pred_logits = self.pnet(inputs)
                 pred_labels = torch.argmax(pred_logits, dim=1)
-                fore_dist_map, back_dist_map = get_geodismaps(inputs.to("cpu"), true_labels.to("cpu"), pred_labels.to("cpu"))
+                fore_dist_map, back_dist_map = get_geodismaps([image_path], 
+                                                              true_labels.to("cpu"), 
+                                                              pred_labels.to("cpu"), 
+                                                              self.dataloaders["valid"].dataset.transform)
+
+                fore_dist_map = torch.Tensor(fore_dist_map)
+                back_dist_map = torch.Tensor(back_dist_map)
+
                 rnet_inputs = torch.cat([
                     inputs,
                     pred_labels.unsqueeze_(dim=1), 
-                    torch.Tensor(fore_dist_map).unsqueeze_(dim=1).to(self.config.exp.device), 
-                    torch.Tensor(back_dist_map).unsqueeze_(dim=1).to(self.config.exp.device)
+                    fore_dist_map.to(self.config.exp.device), 
+                    back_dist_map.to(self.config.exp.device)
                 ], dim=1)
 
                 pred_logits = self.model(rnet_inputs)
@@ -279,6 +312,7 @@ class Brats3dRnetTrainer:
             # # save valid prediction
             if self.config.exp.save_val_pred:
                 self.save_valid_preds(epoch)
+
             # Learning rate scheduling
             self.lr_scheduler.step()
 
