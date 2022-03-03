@@ -21,7 +21,7 @@
   "trainer": {
     "num_epochs": 50,
     "loss": "cross_entropy",
-    "optimizer": "adam",
+    "optimizer": "sgd",
     "learning_rate": 0.001,
     "momentum": 0.99,
     "weight_decay": 0.0005,
