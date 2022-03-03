@@ -10,7 +10,7 @@
   "data": {
     "data_dir": "./dataset/",
     "batch_size": 2,
-    "num_workers": 4
+    "num_workers": 8
   },
   "model": {
     "c_in": 4,
@@ -21,7 +21,7 @@
   "trainer": {
     "num_epochs": 50,
     "loss": "cross_entropy",
-    "optimizer": "sgd",
+    "optimizer": "adam",
     "learning_rate": 0.001,
     "momentum": 0.99,
     "weight_decay": 0.0005,

@@ -61,7 +61,7 @@ class Brats3dPnetTrainer:
             self.model.load_state_dict(last_ckpt['model_state_dict'])
             self.optimizer.load_state_dict(last_ckpt['optimizer_state_dict'])
             self.lr_scheduler.load_state_dict(last_ckpt["lr_scheduler_state_dict"])
-            print(f"Restored latest checkpoint from {last_ckpts[-1]}")
+            print(f"Restored latest checkpoint from {os.path.join(self.config.exp.last_ckpt_dir, last_ckpts[-1])}")
         else:
             self.start_epoch = 0
             print("No trained checkpoints. Start training from scratch.")
