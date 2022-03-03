@@ -1,6 +1,8 @@
-import numpy as np
+import torch
 import random
 import argparse
+import numpy as np
+
 from utils.dirs import create_dirs
 from utils.config import process_config
 from utils.device import device_config
@@ -22,6 +24,12 @@ def get_args():
     return args
 
 
+def set_randomness(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
 def main():
     # Get config path & process config file
     try:
@@ -32,8 +40,7 @@ def main():
         exit(0)
 
     # Set random seed
-    random.seed(1111)
-    np.random.seed(1111)
+    set_randomness(seed=1111)
 
     # Device config (GPU / CPU)
     device_config(config)

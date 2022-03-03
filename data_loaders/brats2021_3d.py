@@ -55,6 +55,7 @@ def get_dataloaders(config):
                 batch_size=config.data.batch_size, 
                 shuffle=True, 
                 num_workers=config.data.num_workers,
+                pin_memory=True
             )
         elif split == "valid":
             valid_dataset = BratsDataset(paths=valid_paths, transform=get_transform(split))
@@ -63,6 +64,7 @@ def get_dataloaders(config):
                 batch_size=config.data.batch_size, 
                 shuffle=False, 
                 num_workers=config.data.num_workers,
+                pin_memory=True
             )
         
     return dataloaders

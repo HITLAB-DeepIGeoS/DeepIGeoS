@@ -40,7 +40,7 @@ class Brats3dRnetTrainer:
                                              weight_decay=self.config.trainer.weight_decay)
         elif self.config.trainer.optimizer == "adam":
             self.optimizer = torch.optim.Adam(params=self.model.parameters(),
-                                             lr=self.config.trainer.learning_rate)
+                                              lr=self.config.trainer.learning_rate)
         else:
             raise ValueError(f"Optimizer {self.config.trainer.optmizer} is not supported")
 
@@ -64,7 +64,7 @@ class Brats3dRnetTrainer:
             self.model.load_state_dict(last_ckpt['model_state_dict'])
             self.optimizer.load_state_dict(last_ckpt['optimizer_state_dict'])
             self.lr_scheduler.load_state_dict(last_ckpt["lr_scheduler_state_dict"])
-            print(f"Restored latest checkpoint from {last_ckpts[-1]}")
+            print(f"Restored latest checkpoint from {os.path.join(self.config.exp.last_ckpt_dir, last_ckpts[-1])}")
         else:
             self.start_epoch = 0
             print("No trained checkpoints. Start training from scratch.")
@@ -105,6 +105,7 @@ class Brats3dRnetTrainer:
             for param in self.pnet.parameters():
                 param.requires_grad = False
             self.pnet.eval()
+            print(f"Restored best pnet checkpoint from {best_ckpt_path}")
         else:
             raise ValueError(f"Can't find best pnet ckpt: {pnet_best_ckpt_dir}")
 
@@ -127,7 +128,8 @@ class Brats3dRnetTrainer:
                 pred_logits = self.pnet(inputs)
 
             pred_labels = torch.argmax(pred_logits, dim=1)
-            fore_dist_map, back_dist_map = get_geodismaps(inputs, true_labels, pred_labels)
+            fore_dist_map, back_dist_map = get_geodismaps(inputs.to("cpu"), true_labels.to("cpu"), pred_labels.to("cpu"))
+
             rnet_inputs = torch.cat([
                 inputs,
                 pred_labels.unsqueeze_(dim=1), 
@@ -182,7 +184,7 @@ class Brats3dRnetTrainer:
                 pred_logits = self.pnet(inputs)
 
                 pred_labels = torch.argmax(pred_logits, dim=1)
-                fore_dist_map, back_dist_map = get_geodismaps(inputs, true_labels, pred_labels)
+                fore_dist_map, back_dist_map = get_geodismaps(inputs.to("cpu"), true_labels.to("cpu"), pred_labels.to("cpu"))
                 rnet_inputs = torch.cat([
                     inputs,
                     pred_labels.unsqueeze_(dim=1), 
@@ -235,7 +237,7 @@ class Brats3dRnetTrainer:
             with torch.no_grad():
                 pred_logits = self.pnet(inputs)
                 pred_labels = torch.argmax(pred_logits, dim=1)
-                fore_dist_map, back_dist_map = get_geodismaps(inputs, true_labels, pred_labels)
+                fore_dist_map, back_dist_map = get_geodismaps(inputs.to("cpu"), true_labels.to("cpu"), pred_labels.to("cpu"))
                 rnet_inputs = torch.cat([
                     inputs,
                     pred_labels.unsqueeze_(dim=1), 
