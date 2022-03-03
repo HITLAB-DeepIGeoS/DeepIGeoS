@@ -2,6 +2,7 @@ import cv2
 import time
 import random
 import numpy as np
+from multiprocessing import Pool
 
 import torch
 import GeodisTK
@@ -142,16 +143,17 @@ def geodismap(sf, sb, original_image):
     sf = np.array(sf, dtype=np.uint8).transpose(2, 0, 1)
     sb = np.array(sb, dtype=np.uint8).transpose(2, 0, 1)
 
-    fore_dist_map = GeodisTK.geodesic3d_raster_scan(I, sf, spacing, 1, 2)
-    back_dist_map = GeodisTK.geodesic3d_raster_scan(I, sb, spacing, 1, 2)
+    with Pool(2) as p:
+        fore_dist_map, back_dist_map = p.starmap(GeodisTK.geodesic3d_raster_scan, 
+                                                 [(I, sf, spacing, 1, 2), (I, sb, spacing, 1, 2)])
 
     return fore_dist_map, back_dist_map
 
 
 def get_geodismaps(inputs, true_labels, pred_labels):
-    inputs_np = np.array(inputs.to("cpu"))
-    pred_labels_np = np.array(pred_labels.to("cpu"))
-    true_labels_np = np.array(true_labels.to("cpu"))
+    inputs_np = np.array(inputs)
+    pred_labels_np = np.array(pred_labels)
+    true_labels_np = np.array(true_labels)
 
     fore_dist_map_batch = np.empty(pred_labels_np.shape, dtype=np.float32)
     back_dist_map_batch = np.empty(pred_labels_np.shape, dtype=np.float32)
