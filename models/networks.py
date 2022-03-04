@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 class P_RNet3D(nn.Module):
@@ -113,12 +114,10 @@ def build_model(config):
     model = P_RNet3D(config.model.c_in, 
                      config.model.c_blk,
                      config.model.n_classes,
-                     config.model.init_weights)
+                     config.model.init_weights).to(config.exp.device)
                      
-    if config.exp.multi_gpu:
-        pass
-    else:
-        model = model.to(config.exp.device)
+    if config.exp.multi_gpu:        
+        model = DDP(model, device_ids=[config.exp.rank], output_device=config.exp.rank)
 
     return model
     
