@@ -4,6 +4,7 @@ from tqdm import tqdm
 
 import torch
 import torchio as tio
+import torch.distributed as dist
 
 from utils.dirs import create_dirs
 from models.metrics import acc, iou, dsc
@@ -37,7 +38,7 @@ class Brats3dPnetTrainer:
                                              weight_decay=self.config.trainer.weight_decay)
         elif self.config.trainer.optimizer == "adam":
             self.optimizer = torch.optim.Adam(params=self.model.parameters(),
-                                             lr=self.config.trainer.learning_rate)
+                                              lr=self.config.trainer.learning_rate)
         else:
             raise ValueError(f"Optimizer {self.config.trainer.optmizer} is not supported")
 
@@ -54,11 +55,19 @@ class Brats3dPnetTrainer:
         if os.path.exists(self.config.exp.last_ckpt_dir):
             last_ckpts = sorted(os.listdir(self.config.exp.last_ckpt_dir))
             if last_ckpts:
-                last_ckpt = torch.load(os.path.join(self.config.exp.last_ckpt_dir, last_ckpts[-1]))
+                if self.config.exp.multi_gpu:
+                    dist.barrier()
+                    last_ckpt = torch.load(os.path.join(self.config.exp.last_ckpt_dir, last_ckpts[-1]), 
+                                           map_location=self.config.exp.device)
+                else:
+                    last_ckpt = torch.load(os.path.join(self.config.exp.last_ckpt_dir, last_ckpts[-1]))
 
         if last_ckpt:
+            if self.config.exp.multi_gpu:
+                self.model.module.load_state_dict(last_ckpt['model_state_dict'])
+            else:
+                self.model.load_state_dict(last_ckpt['model_state_dict'])
             self.start_epoch = last_ckpt['epoch']
-            self.model.load_state_dict(last_ckpt['model_state_dict'])
             self.optimizer.load_state_dict(last_ckpt['optimizer_state_dict'])
             self.lr_scheduler.load_state_dict(last_ckpt["lr_scheduler_state_dict"])
             print(f"Restored latest checkpoint from {os.path.join(self.config.exp.last_ckpt_dir, last_ckpts[-1])}")
@@ -68,8 +77,12 @@ class Brats3dPnetTrainer:
                 
     def save_checkpoint(self, epoch):
         # Save last checkpoint
+        if self.config.exp.multi_gpu:
+            state_dict = self.model.module.state_dict()
+        else:
+            state_dict = self.model.state_dict()
         torch.save({"epoch": epoch + 1,
-                    "model_state_dict": self.model.state_dict(),
+                    "model_state_dict": state_dict,
                     "optimizer_state_dict": self.optimizer.state_dict(),
                     "lr_scheduler_state_dict": self.lr_scheduler.state_dict()
                     }, f"{self.config.exp.last_ckpt_dir}/lask_ckpt_epoch_{epoch:04}.pt")
@@ -80,8 +93,7 @@ class Brats3dPnetTrainer:
         # Save best checkpoint
         if self.best_score < self.logger.get_value("valid", "dsc_1"):
             self.best_score = self.logger.get_value("valid", "dsc_1")
-            torch.save(self.model.state_dict(), 
-                       f"{self.config.exp.best_ckpt_dir}/best_ckpt_epoch_{epoch:04}.pt")
+            torch.save(state_dict, f"{self.config.exp.best_ckpt_dir}/best_ckpt_epoch_{epoch:04}.pt")
             print(f"Saved best model {f'{self.config.exp.best_ckpt_dir}/best_ckpt_epoch_{epoch:04}.pt'}")
             best_ckpts = sorted(os.listdir(self.config.exp.best_ckpt_dir))
             if len(best_ckpts) > 1:
@@ -95,7 +107,7 @@ class Brats3dPnetTrainer:
 
         iter_cnt = 0
         self.model.train()
-        for (inputs, true_labels) in tqdm(self.dataloaders["train"], 
+        for _, inputs, true_labels in tqdm(self.dataloaders["train"], 
                                           desc="train phase",
                                           total=len(self.dataloaders["train"])):
             iter_cnt += 1
@@ -132,7 +144,7 @@ class Brats3dPnetTrainer:
 
         return logs
 
-    def valid_epoch(self):
+    def valid_epoch(self, val_save_dir_epoch):
         cumu_loss = 0
         cumu_accs = np.zeros([self.config.model.n_classes])
         cumu_ious = np.zeros([self.config.model.n_classes])
@@ -141,9 +153,9 @@ class Brats3dPnetTrainer:
         iter_cnt = 0
         self.model.eval()
         with torch.no_grad():
-            for (inputs, true_labels) in tqdm(self.dataloaders["valid"], 
-                                              desc="valid phase",
-                                              total=len(self.dataloaders["valid"])):
+            for image_paths, inputs, true_labels in tqdm(self.dataloaders["valid"], 
+                                                    desc="valid phase",
+                                                    total=len(self.dataloaders["valid"])):
                 iter_cnt += 1
 
                 inputs = inputs.to(self.config.exp.device) # (N, C, W, H, D)
@@ -164,7 +176,19 @@ class Brats3dPnetTrainer:
                                         true_onehot[:, i, ...]) / inputs.shape[0]
                     cumu_dscs[i] += dsc(pred_onehot[:, i, ...],
                                         true_onehot[:, i, ...]) / inputs.shape[0]
-        
+
+                if val_save_dir_epoch:
+                    pred_onehot_target = pred_onehot[:, 1, ...].cpu()
+                    for i, image_path in enumerate(image_paths):
+                        pred_labelmap = tio.LabelMap(
+                            tensor=pred_onehot_target[i].unsqueeze(dim=0),
+                        )
+                        save_path = os.path.join(
+                            val_save_dir_epoch,
+                            os.path.basename(image_path.replace("_flair", "_pred"))
+                        )
+                        pred_labelmap.save(save_path)
+
         logs = {}
         logs["loss"] = cumu_loss / iter_cnt
         for i in range(self.config.model.n_classes):
@@ -174,65 +198,50 @@ class Brats3dPnetTrainer:
 
         return logs
 
-    def save_valid_preds(self, epoch, target_class=1):
-        val_save_dir_epoch = os.path.join(self.config.exp.val_pred_dir, f"epoch_{epoch:03}")
-        create_dirs([val_save_dir_epoch])
-
-        for image_path in tqdm(self.dataloaders["valid"].dataset.image_paths,
-                               desc="pred & save",
-                               total=len(self.dataloaders["valid"].dataset.image_paths)):
-            input_subject = tio.Subject(
-                image = tio.ScalarImage(image_path),
-            )
-            input_subject = self.dataloaders["valid"].dataset.transform(input_subject)
-            input_tensor = input_subject.image.data.unsqueeze(dim=0).to(self.config.exp.device)
-
-            self.model.eval()
-            with torch.no_grad():
-                pred_logits = self.model(input_tensor)  
-                pred_labels = torch.argmax(pred_logits, dim=1)
-                pred_onehot = torch.nn.functional.one_hot(pred_labels, 
-                                                          self.config.model.n_classes).permute(0, 4, 1, 2, 3)
-                pred_onehot_target = pred_onehot[:, target_class, ...]
-            
-            pred_labelmap = tio.LabelMap(
-                tensor=pred_onehot_target.cpu(),
-                affine=input_subject.image.affine
-            )
-
-            save_path = os.path.join(
-                val_save_dir_epoch,
-                os.path.basename(image_path)
-            )
-
-            pred_labelmap.save(save_path)
-
     def train(self):
         for epoch in range(self.start_epoch, self.config.trainer.num_epochs):
             print(f"Epoch {epoch:4.0f}/{self.config.trainer.num_epochs - 1}")
-            # Reset metric logs
-            self.logger.reset()
+            # Sync all processes before start training
+            if self.config.exp.multi_gpu:
+                dist.barrier()
 
-            # train 1 epoch
+            # Shuffle each sampler
+            if self.config.exp.multi_gpu:
+                self.dataloaders["train"].sampler.set_epoch(epoch)
+
+            # Train
             train_result_dict = self.train_epoch()
             self.logger.update("train", train_result_dict)
 
-            # valid 1 epoch
-            valid_result_dict = self.valid_epoch()
+            # Valid
+            if self.config.exp.save_val_pred:
+                # save valid prediction
+                val_save_dir_epoch = os.path.join(self.config.exp.val_pred_dir, f"epoch_{epoch:03}")
+                if not self.config.exp.multi_gpu or (self.config.exp.multi_gpu and self.config.exp.rank == 0):
+                    create_dirs([val_save_dir_epoch])
+                if self.config.exp.multi_gpu:
+                    dist.barrier()
+                valid_result_dict = self.valid_epoch(val_save_dir_epoch)
+            else:
+                # without saving
+                valid_result_dict = self.valid_epoch()
             self.logger.update("valid", valid_result_dict)
 
-            # # save valid prediction
-            if self.config.exp.save_val_pred:
-                self.save_valid_preds(epoch)
             # Learning rate scheduling
             self.lr_scheduler.step()
 
-            # Save checkpoint
-            self.save_checkpoint(epoch)
+            # Wait other process before save and logging
+            if self.config.exp.multi_gpu:
+                dist.barrier()
 
-            # Save logs to tensorboard
-            self.logger.write_tensorboard(step=epoch)
-            
-            # Print epoch history
-            self.logger.summarize("train")
-            self.logger.summarize("valid")
+            if not self.config.exp.multi_gpu or (self.config.exp.multi_gpu and self.config.exp.rank == 0):
+                # Save checkpoint
+                self.save_checkpoint(epoch)
+
+                # Save logs to tensorboard
+                self.logger.write_tensorboard(step=epoch)
+
+                # Print epoch history and reset logger
+                self.logger.summarize("train")
+                self.logger.summarize("valid")
+                self.logger.reset()

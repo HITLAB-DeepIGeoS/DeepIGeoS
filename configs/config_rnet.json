@@ -1,7 +1,7 @@
 {
   "exp": {
     "name": "brats3d_rnet_init_train",
-    "gpu_ids": [0],
+    "gpu_ids": [0, 1],
     "exp_dir": "experiments/",
     "max_to_keep_ckpt": 5,
     "save_val_pred": true,

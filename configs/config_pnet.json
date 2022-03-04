@@ -1,15 +1,15 @@
 {
   "exp": {
     "name": "brats3d_pnet_init_train",
-    "gpu_ids": [0],
+    "gpu_ids": [0, 1],
     "exp_dir": "experiments/",
     "max_to_keep_ckpt": 5,
     "save_val_pred": true
   },
   "data": {
     "data_dir": "./dataset/",
-    "batch_size": 1,
-    "num_workers": 4
+    "batch_size": 2,
+    "num_workers": 8
   },
   "model": {
     "c_in": 1,
