@@ -52,50 +52,51 @@ def randompoint(seg):
     focus_h, focus_w, focus_d = focusregion_index(seg_array)
     output = np.zeros(shape=seg_shape)
 
-    # h
-    retval, labels, stats, centroids = cv2.connectedComponentsWithStats(
-        seg_array[focus_h, :, :]
-    )
-    for i in range(1, len(stats)):
-        region_size = stats[i][4]
-        if region_size >= 30:
-            number_n = int(np.ceil(region_size / 100))
-            index_list = np.random.choice(region_size, number_n, replace=False)
-            output[
-                focus_h,
-                np.where(labels == i)[0][index_list],
-                np.where(labels == i)[1][index_list],
-            ] = 1
+    if None not in [focus_h, focus_w, focus_d]:
+        # h
+        retval, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            seg_array[focus_h, :, :]
+        )
+        for i in range(1, len(stats)):
+            region_size = stats[i][4]
+            if region_size >= 30:
+                number_n = int(np.ceil(region_size / 100))
+                index_list = np.random.choice(region_size, number_n, replace=False)
+                output[
+                    focus_h,
+                    np.where(labels == i)[0][index_list],
+                    np.where(labels == i)[1][index_list],
+                ] = 1
 
-    # w
-    retval, labels, stats, centroids = cv2.connectedComponentsWithStats(
-        seg_array[:, focus_w, :]
-    )
-    for i in range(1, len(stats)):
-        region_size = stats[i][4]
-        if region_size >= 30:
-            number_n = int(np.ceil(region_size / 100))
-            index_list = np.random.choice(region_size, number_n, replace=False)
-            output[
-                np.where(labels == i)[0][index_list],
-                focus_w,
-                np.where(labels == i)[1][index_list],
-            ] = 1
+        # w
+        retval, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            seg_array[:, focus_w, :]
+        )
+        for i in range(1, len(stats)):
+            region_size = stats[i][4]
+            if region_size >= 30:
+                number_n = int(np.ceil(region_size / 100))
+                index_list = np.random.choice(region_size, number_n, replace=False)
+                output[
+                    np.where(labels == i)[0][index_list],
+                    focus_w,
+                    np.where(labels == i)[1][index_list],
+                ] = 1
 
-    # d
-    retval, labels, stats, centroids = cv2.connectedComponentsWithStats(
-        seg_array[:, :, focus_d]
-    )
-    for i in range(1, len(stats)):
-        region_size = stats[i][4]
-        if region_size >= 30:
-            number_n = int(np.ceil(region_size / 100))
-            index_list = np.random.choice(region_size, number_n, replace=False)
-            output[
-                np.where(labels == i)[0][index_list],
-                np.where(labels == i)[1][index_list],
-                focus_d,
-            ] = 1
+        # d
+        retval, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            seg_array[:, :, focus_d]
+        )
+        for i in range(1, len(stats)):
+            region_size = stats[i][4]
+            if region_size >= 30:
+                number_n = int(np.ceil(region_size / 100))
+                index_list = np.random.choice(region_size, number_n, replace=False)
+                output[
+                    np.where(labels == i)[0][index_list],
+                    np.where(labels == i)[1][index_list],
+                    focus_d,
+                ] = 1
 
     return output
 
