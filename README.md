@@ -17,6 +17,8 @@ torch==1.10.2
 torchio==0.18.73
 torchvision==0.11.3
 tqdm==4.62.3
+pyqt
+
 ```
 
 ## Download Datasets
@@ -40,3 +42,7 @@ $ python train_rnet.py -c configs/config_rnet.json
 ```shell
 $ tensorboard --logdir experiments/logs/
 ```
+
+## Run
+```shell
+$ python3 main_deepigeos.py
