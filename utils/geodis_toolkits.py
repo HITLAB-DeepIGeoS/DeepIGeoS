@@ -134,7 +134,7 @@ def geodismap(sf, sb, image_path):
     """
 
     image = sitk.ReadImage(image_path)
-    I = sitk.GetArrayFromImage(image)
+    I = sitk.GetArrayFromImage(image)    
     I = np.asarray(I, np.float32)
 
     spacing_raw = image.GetSpacing()
@@ -146,6 +146,12 @@ def geodismap(sf, sb, image_path):
     with Pool(2) as p:
         fore_dist_map, back_dist_map = p.starmap(GeodisTK.geodesic3d_raster_scan, 
                                                  [(I, sf, spacing, 1, 2), (I, sb, spacing, 1, 2)])
+
+    if fore_dist_map.all():
+        fore_dist_map = I
+
+    if back_dist_map.all():
+        back_dist_map = I
 
     return fore_dist_map, back_dist_map
 
