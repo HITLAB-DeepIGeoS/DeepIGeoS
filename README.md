@@ -45,4 +45,4 @@ $ tensorboard --logdir experiments/logs/
 
 ## Run
 ```shell
-$ python3 main_deepigeos.py
+$ python main_deepigeos.py
