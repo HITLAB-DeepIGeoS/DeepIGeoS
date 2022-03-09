@@ -1,11 +1,27 @@
-# DeepIGeoS
-DeepIGeoS Paper Implementation [[paper](https://arxiv.org/abs/1707.00652)]
+# :brain: DeepIGeoS
 
-## Environments
+: DeepIGeoS Paper Implementation
+> :page_facing_up: [DeepIGeoS: A Deep Interactive Geodesic Framework for Medical Image Segmentation (2018)](https://ieeexplore.ieee.org/abstract/document/8370732)
+
+Steps are below : 
+- [x] check prerequisites
+- [x] download Dataset 
+- [x] Train (P-Net, R-Net)
+- [x] 
+.
+.
+.
+- [x] background of this work 
+
+## :pushpin: Prerequisites
+Please check versions of python and tensor flow before you start. If you need them, you should either upgrade versions or install them.
+### ☺︎ Environments
+```
 - Ubuntu 16.04
 - Python 3.7.11
+```
+### ☺︎ Libraries 
 
-## Requirements
 ```shell
 dotmap
 GeodisTK==0.1.7
@@ -20,50 +36,41 @@ tqdm==4.62.3
 pyqt
 
 ```
+## :pushpin: Datasets
 
-## Download Datasets
 ```shell
 $ bash load_datasets.sh
 ```
 
-## Train
+## :pushpin: Train
 
-### 1. Train P-Net
+### ☺︎ Train P-Net
+
 ```shell
 $ python train_pnet.py -c configs/config_pnet.json
 ```
 
-### 2. Train R-Net
+### ☺︎ Train R-Net
 ```shell
 $ python train_rnet.py -c configs/config_rnet.json
 ```
 
-## Tensorboard
+### ☺︎ Tensorboard
 ```shell
 $ tensorboard --logdir experiments/logs/
 ```
 
-## Run
+### ☺︎ Run
 ```shell
 $ python main_deepigeos.py
-
-# HIT LAB 
-Notion page : 
-- [2D P-net](https://www.notion.so/modulabs/2D-P-Net-38f460c7c3cf4e4293f40c774017caa0)
-
-### ☺︎ Steps 
-- [x] 논문 이해
-- [ ] 2D P-Net code 이해  
-- [ ] Dataset 
-- [ ] 결과 기록 
-    - `wandb` : Loss, IoU, Dice Score, Prediction 결과 이미지들(validation set에서 10장) 기록 
-- [ ] R-Net code 구현   
+```
 
 
-### ☺︎ Reference paper
-> [DeepIGeoS: A Deep Interactive Geodesic Framework for Medical Image Segmentation (2018)](https://ieeexplore.ieee.org/abstract/document/8370732)
 
-purpose : 
+## :pushpin: Backgound 
+
+### ☺︎ DeepIGeoS
+#### purpose : 
 - a deep learning-based interactive segmentation method to imporve the results obtained by an automatic CNN and to reduce user interactions during refinement for high accuracy 
 - integrate user interactions as hard constraints into a back-propagatable Conditional Random Field.
 - image segmentation에서 중요한 것은 시간보다 정확도 임. 
@@ -105,7 +112,7 @@ purpose :
  
  
 
-### ☺︎ [Data](https://drive.google.com/file/d/1Bv5Nc8lZOWdAeaX9uA5_uwUgGQ8sP96p/view?usp=drivesdk)
+### ☺︎ [Dataset](https://drive.google.com/file/d/1Bv5Nc8lZOWdAeaX9uA5_uwUgGQ8sP96p/view?usp=drivesdk)
 - [Ref. paper](https://arxiv.org/pdf/2107.02314.pdf)
 - The BraTS dataset describes a retrospective collection of brain tumor mpMRI scans acquired from multiple different institutions under standard clinical conditions, but with different equipment and imaging protocols, resulting in a vastly heterogeneous image quality reflecting diverse clinical practice across different institutions. Inclusion criteria comprised pathologically confirmed diagnosis and available MGMT promoter methylation status. These data have been updated, since BraTS 2020, increasing the total number of cases from 660 to 2,000.
 
