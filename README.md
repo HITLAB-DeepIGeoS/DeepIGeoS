@@ -86,6 +86,12 @@ $ tensorboard --logdir experiments/logs/
 ```shell
 $ python main_deepigeos.py
 ```
+### ☺︎ Result 
+
+From top to bottom, the figures are the original image, label, P-Net prediction, R-Net refined prediction
+<div>
+<img width="1010" alt="Screen Shot 2022-03-05 at 1 13 44 PM" src="https://user-images.githubusercontent.com/40614421/157642805-2c0d3e73-af88-48e6-be61-e75d98570680.png">
+</div>
 
 ## :pushpin: Backgound 
 
