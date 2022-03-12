@@ -132,11 +132,15 @@ To perform DeepIGeoS, we have studied and understood the original paper.
 
 
 ### ☺︎ data preprocessing / augmentation
-**working here**
+All details are on [Data preprocessing and augmentation using TorchIO: a tutorial](https://colab.research.google.com/github/fepegar/torchio-notebooks/blob/main/notebooks/Data_preprocessing_and_augmentation_using_TorchIO_a_tutorial.ipynb) and [torchio]( https://torchio.readthedocs.io/transforms/augmentation.html)
 
-ref : https://torchio.readthedocs.io/transforms/augmentation.html
-
-
+```
+tio.ToCanonical(), # 좌표축을 RAS로 맞춰주는 함수
+tio.Resample(1),  # voxel spacing을 맞춰주는 함수
+tio.CropOrPad((155, 200, 155), mask_name='crop_mask'),  # 데이터를 cropping 하는 함수, crop_mask는 해당 mask를 중심으로 두고 crop할 영역을 계산하기위해 사용
+tio.RandomAffine(degrees=[-np.pi/8, np.pi/8], scales=[0.8, 1.25]),  # 데이터에 rotation 및 Zoom in, out을 주는 함수
+tio.RandomFlip(axes=(0, 1, 2)),  # 데이터에 flipping을 하는 함수
+```
 
 ### ☺︎ Data Visualization 
 **working here**
