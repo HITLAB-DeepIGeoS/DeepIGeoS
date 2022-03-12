@@ -35,7 +35,8 @@ pyqt
 
 ```
 ## :pushpin: Datasets
-Download dataset using `load_datasets.sh`
+Download dataset using `load_datasets.sh`.
+All details of the considered datasets and preprocessing processes are described below **☺︎ Dataset** and **☺︎ data preprocessing / augmentation** sections.
 ```
 $ bash load_datasets.sh
 ```
@@ -130,7 +131,7 @@ To perform DeepIGeoS, we have studied and understood the original paper.
 </div>
 
 
-### ☺︎ Image augmentation 
+### ☺︎ data preprocessing / augmentation
 **working here**
 
 ref : https://torchio.readthedocs.io/transforms/augmentation.html
@@ -139,5 +140,12 @@ ref : https://torchio.readthedocs.io/transforms/augmentation.html
 
 ### ☺︎ Data Visualization 
 **working here**
-
+QT Designer
+https://doc.qt.io/qt-6/qtdesigner-manual.html
+QT Qlabel
+https://doc.qt.io/qt-5/qlabel.html
+Mouse event
+https://doc.qt.io/qt-5/qmouseevent.html
+Image 처리
+https://doc.qt.io/qt-5/qimage.html
 
