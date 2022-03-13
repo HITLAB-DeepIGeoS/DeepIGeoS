@@ -22,11 +22,14 @@ class BratsDataset(Dataset):
             image = tio.ScalarImage(self.image_paths[index]),
             label = tio.LabelMap(self.label_paths[index]),
         )
+        subject.add_image(tio.LabelMap(tensor=(subject.image.data.clone() > 0), 
+                                       affine=subject.image.affine),
+                          image_name="crop_mask")
         if self.transform:
             subject = self.transform(subject)
 
-        # Shape : [list], (C, W, H, D), (W, H, D)
-        return self.image_paths[index], subject.image.data, subject.label.data[0, ...]
+        # Shape : list, (C, W, H, D), (W, H, D)
+        return self.image_paths[index], subject.image.data.float(), subject.label.data[0, ...]
 
     def _set_file_paths(self):
         self.image_paths = []

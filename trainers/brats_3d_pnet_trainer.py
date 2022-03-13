@@ -7,7 +7,7 @@ import torchio as tio
 import torch.distributed as dist
 
 from utils.dirs import create_dirs
-from models.metrics import acc, iou, dsc
+from models.metrics import iou, dsc, assd
 
 
 class Brats3dPnetTrainer:
@@ -16,13 +16,13 @@ class Brats3dPnetTrainer:
         self.model = model
         self.dataloaders = dataloaders
         self.config = config
-
         self.logger = logger
         self.set_loss_fn()
         self.set_optimizer()
         self.set_lr_scheduler()
         self.init_checkpoint()
-        self.best_score = 0.
+        self.best_loss = np.inf
+        self.norm_transform = tio.ZNormalization(masking_method=lambda x: x > 0)
 
     def set_loss_fn(self):
         if self.config.trainer.loss == "cross_entropy":
@@ -91,8 +91,8 @@ class Brats3dPnetTrainer:
             os.remove(f"{self.config.exp.last_ckpt_dir}/{last_ckpts[0]}")
         
         # Save best checkpoint
-        if self.best_score < self.logger.get_value("valid", "dsc_1"):
-            self.best_score = self.logger.get_value("valid", "dsc_1")
+        if self.best_loss > self.logger.get_value("valid", "loss"):
+            self.best_loss = self.logger.get_value("valid", "loss")
             torch.save(state_dict, f"{self.config.exp.best_ckpt_dir}/best_ckpt_epoch_{epoch:04}.pt")
             print(f"Saved best model {f'{self.config.exp.best_ckpt_dir}/best_ckpt_epoch_{epoch:04}.pt'}")
             best_ckpts = sorted(os.listdir(self.config.exp.best_ckpt_dir))
@@ -100,22 +100,25 @@ class Brats3dPnetTrainer:
                 os.remove(f"{self.config.exp.best_ckpt_dir}/{best_ckpts[0]}")
 
     def train_epoch(self):
-        cumu_loss = 0
-        cumu_accs = np.zeros([self.config.model.n_classes])
-        cumu_ious = np.zeros([self.config.model.n_classes])
-        cumu_dscs = np.zeros([self.config.model.n_classes])
+        cumu_loss = 0.
+        cumu_iou = 0.
+        cumu_dsc = 0.
+        cumu_assd = 0.
 
         iter_cnt = 0
+        inf_cnt = 0
         self.model.train()
         for _, inputs, true_labels in tqdm(self.dataloaders["train"], 
-                                          desc="train phase",
-                                          total=len(self.dataloaders["train"])):
+                                           desc="train phase",
+                                           total=len(self.dataloaders["train"])):
             iter_cnt += 1
 
-            inputs = inputs.to(self.config.exp.device) # (N, C, W, H, D)
+            inputs_norm = self.norm_transform(inputs.squeeze(dim=1)) # (N, C, W, H, D)
+            inputs_norm = inputs_norm.unsqueeze(dim=1)
+            inputs_norm = inputs_norm.to(self.config.exp.device)
             true_labels = true_labels.to(self.config.exp.device).type(torch.long) # (N, W, H, D)
 
-            pred_logits = self.model(inputs)
+            pred_logits = self.model(inputs_norm)
             loss = self.loss_fn(pred_logits, true_labels)
             
             self.optimizer.zero_grad()
@@ -127,41 +130,46 @@ class Brats3dPnetTrainer:
             true_onehot = torch.nn.functional.one_hot(true_labels, self.config.model.n_classes).permute(0, 4, 1, 2, 3)
 
             cumu_loss += loss.to("cpu").item()
-            for i in range(self.config.model.n_classes):
-                cumu_accs[i] += acc(pred_onehot[:, i, ...],
-                                    true_onehot[:, i, ...]) / inputs.shape[0]
-                cumu_ious[i] += iou(pred_onehot[:, i, ...],
-                                    true_onehot[:, i, ...]) / inputs.shape[0]
-                cumu_dscs[i] += dsc(pred_onehot[:, i, ...],
-                                    true_onehot[:, i, ...]) / inputs.shape[0]
+            cumu_iou += iou(pred_onehot, true_onehot, include_background=False).mean()
+            cumu_dsc += dsc(pred_onehot, true_onehot, include_background=False).mean()
+            assd_score = assd(pred_onehot, true_onehot, include_background=False).mean()
+            if np.isinf(assd_score):
+                inf_cnt += 1
+            else:
+                cumu_assd += assd_score
 
-        logs = {}
-        logs["loss"] = cumu_loss / iter_cnt
-        for i in range(self.config.model.n_classes):
-            logs[f"acc_{i}"] = cumu_accs[i] / iter_cnt
-            logs[f"iou_{i}"] = cumu_ious[i] / iter_cnt
-            logs[f"dsc_{i}"] = cumu_dscs[i] / iter_cnt
-
-        return logs
+        result_dict = {
+            "loss": cumu_loss / iter_cnt,
+            "iou":  cumu_iou  / iter_cnt,
+            "dsc":  cumu_dsc  / iter_cnt,
+        }
+        if (iter_cnt - inf_cnt) == 0:
+            result_dict.update({"assd": np.inf})
+        else:
+            result_dict.update({"assd": cumu_assd / (iter_cnt - inf_cnt)})
+        return result_dict
 
     def valid_epoch(self, val_save_dir_epoch):
-        cumu_loss = 0
-        cumu_accs = np.zeros([self.config.model.n_classes])
-        cumu_ious = np.zeros([self.config.model.n_classes])
-        cumu_dscs = np.zeros([self.config.model.n_classes])
+        cumu_loss = 0.
+        cumu_iou = 0.
+        cumu_dsc = 0.
+        cumu_assd = 0.
 
         iter_cnt = 0
+        inf_cnt = 0
         self.model.eval()
         with torch.no_grad():
             for image_paths, inputs, true_labels in tqdm(self.dataloaders["valid"], 
-                                                    desc="valid phase",
-                                                    total=len(self.dataloaders["valid"])):
+                                                         desc="valid phase",
+                                                         total=len(self.dataloaders["valid"])):
                 iter_cnt += 1
-
-                inputs = inputs.to(self.config.exp.device) # (N, C, W, H, D)
+                
+                inputs_norm = self.norm_transform(inputs.squeeze(dim=1)) # (N, C, W, H, D)
+                inputs_norm = inputs_norm.unsqueeze(dim=1)
+                inputs_norm = inputs_norm.to(self.config.exp.device)
                 true_labels = true_labels.to(self.config.exp.device).type(torch.long) # (N, W, H, D)
 
-                pred_logits = self.model(inputs)
+                pred_logits = self.model(inputs_norm)
                 loss = self.loss_fn(pred_logits, true_labels)
 
                 pred_labels = torch.argmax(pred_logits, dim=1)
@@ -169,34 +177,31 @@ class Brats3dPnetTrainer:
                 true_onehot = torch.nn.functional.one_hot(true_labels, self.config.model.n_classes).permute(0, 4, 1, 2, 3)
 
                 cumu_loss += loss.to("cpu").item()
-                for i in range(self.config.model.n_classes):
-                    cumu_accs[i] += acc(pred_onehot[:, i, ...],
-                                        true_onehot[:, i, ...]) / inputs.shape[0]
-                    cumu_ious[i] += iou(pred_onehot[:, i, ...],
-                                        true_onehot[:, i, ...]) / inputs.shape[0]
-                    cumu_dscs[i] += dsc(pred_onehot[:, i, ...],
-                                        true_onehot[:, i, ...]) / inputs.shape[0]
+                cumu_iou += iou(pred_onehot, true_onehot, include_background=False).mean()
+                cumu_dsc += dsc(pred_onehot, true_onehot, include_background=False).mean()
+                assd_score = assd(pred_onehot, true_onehot, include_background=False).mean()
+                if np.isinf(assd_score):
+                    inf_cnt += 1
+                else:
+                    cumu_assd += assd_score
 
                 if val_save_dir_epoch:
                     pred_onehot_target = pred_onehot[:, 1, ...].cpu()
                     for i, image_path in enumerate(image_paths):
-                        pred_labelmap = tio.LabelMap(
-                            tensor=pred_onehot_target[i].unsqueeze(dim=0),
-                        )
-                        save_path = os.path.join(
-                            val_save_dir_epoch,
-                            os.path.basename(image_path.replace("_flair", "_pred"))
-                        )
-                        pred_labelmap.save(save_path)
+                        pred_labelmap = tio.LabelMap(tensor=pred_onehot_target[i].unsqueeze(dim=0))
+                        pred_labelmap.save(os.path.join(val_save_dir_epoch,
+                                                        os.path.basename(image_path.replace("_flair", "_pred"))))
 
-        logs = {}
-        logs["loss"] = cumu_loss / iter_cnt
-        for i in range(self.config.model.n_classes):
-            logs[f"acc_{i}"] = cumu_accs[i] / iter_cnt
-            logs[f"iou_{i}"] = cumu_ious[i] / iter_cnt
-            logs[f"dsc_{i}"] = cumu_dscs[i] / iter_cnt
-
-        return logs
+        result_dict = {
+            "loss": cumu_loss / iter_cnt,
+            "iou":  cumu_iou  / iter_cnt,
+            "dsc":  cumu_dsc  / iter_cnt,
+        }
+        if (iter_cnt - inf_cnt) == 0:
+            result_dict.update({"assd": np.inf})
+        else:
+            result_dict.update({"assd": cumu_assd / (iter_cnt - inf_cnt)})
+        return result_dict
 
     def train(self):
         for epoch in range(self.start_epoch, self.config.trainer.num_epochs):

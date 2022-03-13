@@ -4,8 +4,8 @@ import numpy as np
 from multiprocessing import Pool
 
 import torch
+import torchio as tio
 import GeodisTK
-import SimpleITK as sitk
 
 
 def focusregion_index(pred_array):
@@ -112,13 +112,13 @@ def randominteraction(pred_array, label_array):
     return sb, sf
 
 
-def geodismap(sf, sb, image_path):
+def geodismap(sf, sb, input_np):
 
     # shape needs to be aligned.
     # original image shape : h, w, d
 
-    # sf: foreward interaction
-    # sb: backward interaction
+    # sf: foreground interaction (under segmented)
+    # sb: background interaction (over segmented)
 
     """
     Get 3D geodesic disntance by raser scanning.
@@ -133,13 +133,8 @@ def geodismap(sf, sb, image_path):
     iter: number of iteration for raster scanning.
     """
 
-    image = sitk.ReadImage(image_path)
-    I = sitk.GetArrayFromImage(image)    
-    I = np.asarray(I, np.float32)
-
-    spacing_raw = image.GetSpacing()
-    spacing = [spacing_raw[2], spacing_raw[1],spacing_raw[0]]
-
+    spacing = tio.ScalarImage(tensor=input_np).spacing
+    I = np.squeeze(input_np, axis=0).transpose(2, 0, 1)
     sf = np.array(sf, dtype=np.uint8).transpose(2, 0, 1)
     sb = np.array(sb, dtype=np.uint8).transpose(2, 0, 1)
 
@@ -147,29 +142,29 @@ def geodismap(sf, sb, image_path):
         fore_dist_map, back_dist_map = p.starmap(GeodisTK.geodesic3d_raster_scan, 
                                                  [(I, sf, spacing, 1, 2), (I, sb, spacing, 1, 2)])
 
+    fore_dist_map = GeodisTK.geodesic3d_raster_scan(I, sf, spacing, 1, 2)
+    back_dist_map = GeodisTK.geodesic3d_raster_scan(I, sb, spacing, 1, 2)
+
     if fore_dist_map.all():
         fore_dist_map = I
 
     if back_dist_map.all():
         back_dist_map = I
 
-    return fore_dist_map, back_dist_map
+    return fore_dist_map.transpose(1, 2, 0), back_dist_map.transpose(1, 2, 0)
 
 
-def get_geodismaps(image_paths, true_labels, pred_labels, transform):
-    pred_labels_np = np.array(pred_labels)
-    true_labels_np = np.array(true_labels)
+def get_geodismaps(inputs_np, true_labels_np, pred_labels_np):
+    fore_dist_map_batch = np.empty(inputs_np.shape, dtype=np.float32)
+    back_dist_map_batch = np.empty(inputs_np.shape, dtype=np.float32)
 
-    fore_dist_map_batch = np.empty((pred_labels_np.shape[0], 1, *pred_labels_np.shape[1:]), dtype=np.float32)
-    back_dist_map_batch = np.empty((pred_labels_np.shape[0], 1, *pred_labels_np.shape[1:]), dtype=np.float32)
-
-    for i, (image_path, pred_label_np, true_label_np) in enumerate(zip(image_paths, 
+    for i, (input_np, pred_label_np, true_label_np) in enumerate(zip(inputs_np, 
                                                                        pred_labels_np, 
                                                                        true_labels_np)):
         sb, sf = randominteraction(pred_label_np, true_label_np)
-        fore_dist_map, back_dist_map = geodismap(sf, sb, image_path)
+        fore_dist_map, back_dist_map = geodismap(sf, sb, input_np)
 
-        fore_dist_map_batch[i] = transform(np.expand_dims(fore_dist_map.transpose(1, 2, 0), axis=0))
-        back_dist_map_batch[i] = transform(np.expand_dims(back_dist_map.transpose(1, 2, 0), axis=0))
+        fore_dist_map_batch[i] = np.expand_dims(fore_dist_map, axis=0)
+        back_dist_map_batch[i] = np.expand_dims(back_dist_map, axis=0)
 
     return fore_dist_map_batch, back_dist_map_batch
