@@ -54,6 +54,11 @@ def main():
             args=(config, logger,)
         )
     else:
+        # Set random seed
+        random.seed(1111)
+        np.random.seed(1111)
+        torch.manual_seed(1111)
+
         # Load datasets
         dataloaders = get_dataloaders(config)
         
