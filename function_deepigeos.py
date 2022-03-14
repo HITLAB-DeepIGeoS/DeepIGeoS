@@ -22,6 +22,7 @@ from utils.geodis_toolkits import geodismap
 from models.networks import P_RNet3D
 from data_loaders.transforms import get_transform
 
+
 def clk_seg(usrId, count, path, int_pos, int_neg, axis, img, pn, clk):
     pos = (int_pos==0)
     neg = (int_neg==0)
@@ -93,6 +94,7 @@ def nextImage( usrId, imgs, segs, ax, count, pn, clk=(0,0)):
             img = imgs[:,:,count]   
             
         img = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        img = cv2.flip(img, 1)
         img = cv2.divide(img, img.max())
         img = cv2.resize(img, (iH*2, iW*2))
         img = cv2.normalize(src=img, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
@@ -108,6 +110,7 @@ def nextImage( usrId, imgs, segs, ax, count, pn, clk=(0,0)):
         img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
     seg = cv2.rotate(seg, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    seg = cv2.flip(seg, 1)
     seg = cv2.divide(seg, seg.max())
     seg[np.where(seg!=0)]=1
     seg = cv2.normalize(src=seg, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
@@ -136,9 +139,11 @@ def seg_reduction(int_seg):
         int_seg[idx[0][i]+1, idx[1][i] +1] =1
         
     int_seg = cv2.rotate(int_seg, cv2.ROTATE_90_CLOCKWISE)
+    int_seg = cv2.flip(int_seg, 1)
     int_seg = cv2.resize(int_seg, (int(h/2), int(w/2)), interpolation = cv2.INTER_NEAREST)
     
     return int_seg
+
 
 def save_func(imgs, path, usrId):
     file_path = []
@@ -183,23 +188,24 @@ def save_func(imgs, path, usrId):
     return int_pos_result, int_neg_result
 
 
-
 def pnet_inference(
     image_path,
     save_path,
     pnet, 
     transform, 
+    norm_transform, 
     device
 ):
     """
     P-Net inference function
     
     Args:
-        image_path: file path of input image (ex. image_path.nii.gz)
-        save_path:  file path to save result (ex. pnet_pred.nii.gz)
-        pnet:       trained pnet model (torch.nn.Module)
-        transform:  preprocessing transforms (torchio.Compose)
-        device:     torch device (torch.device)
+        image_path:     file path of input image (ex. image_path.nii.gz)
+        save_path:      file path to save result (ex. pnet_pred.nii.gz)
+        pnet:           trained pnet model (torch.nn.Module)
+        transform:      preprocessing transforms (torchio.Compose)
+        norm_transform: preprocessing transforms (normalization)
+        device:         torch device (torch.device)
     """
 
     # read image and make subject to apply transform
@@ -207,6 +213,7 @@ def pnet_inference(
         image = tio.ScalarImage(image_path),
     )
     subject = transform(subject)
+    subject = norm_transform(subject)
 
     # make numpy array to torch tensor
     input_image = subject.image.data
@@ -236,6 +243,7 @@ def rnet_inference(
     save_path,
     rnet, 
     transform, 
+    norm_transform, 
     device
 ):
     """
@@ -249,6 +257,7 @@ def rnet_inference(
         save_path:      file path to save result (ex. pnet_pred.nii.gz)
         rnet:           trained rnet model (torch.nn.Module)
         transform:      preprocessing transforms (torchio.Compose)
+        norm_transform: preprocessing transforms (normalization)
         device:         torch device (torch.device)
     """
 
@@ -258,12 +267,15 @@ def rnet_inference(
         pnet_pred = tio.LabelMap(pnet_pred_path)
     )
     subject = transform(subject)
+    subject_norm = norm_transform(subject)
 
     # cast numpy array to torch tensor
     input_image = subject.image.data
-    input_tensor = input_image.unsqueeze(dim=0).to(device)
+    input_image_norm = subject_norm.image.data
+    input_tensor_norm = input_image_norm.unsqueeze(dim=0).to(device)
 
-    pnet_pred_label = subject.pnet_pred.data
+    pnet_pred = tio.LabelMap(pnet_pred_path)
+    pnet_pred_label = pnet_pred.data
     pnet_pred_tensor = pnet_pred_label.unsqueeze(dim=0).to(device)
 
     # read random point numpy array
@@ -271,13 +283,13 @@ def rnet_inference(
 
     # get geodismap from random points and apply transform
     sf, sb = sf.astype(np.float32), sb.astype(np.float32)
-    fore_dist_map, back_dist_map = geodismap(sf, sb, image_path)
-    fore_dist_map = torch.Tensor(transform(np.expand_dims(fore_dist_map.transpose(1, 2, 0), axis=0)))
-    back_dist_map = torch.Tensor(transform(np.expand_dims(back_dist_map.transpose(1, 2, 0), axis=0)))
+    fore_dist_map, back_dist_map = geodismap(sf, sb, input_image.numpy())
+    fore_dist_map = torch.Tensor(norm_transform(np.expand_dims(fore_dist_map, axis=0)))
+    back_dist_map = torch.Tensor(norm_transform(np.expand_dims(back_dist_map, axis=0)))
 
     # make rnet input tensor
     rnet_inputs = torch.cat([
-        input_tensor,
+        input_tensor_norm,
         pnet_pred_tensor, 
         fore_dist_map.unsqueeze(dim=1).to(device), 
         back_dist_map.unsqueeze(dim=1).to(device)
