@@ -86,6 +86,7 @@ class MainDialog(QDialog):
                                           save_path=save_path_pnet,
                                           pnet=pnet,
                                           transform=test_transform,
+                                          norm_transform=tio.ZNormalization(masking_method=lambda x: x > 0),
                                           device=device)     
         
         self.segs = nib.load(save_path_pnet)
@@ -159,6 +160,7 @@ class MainDialog(QDialog):
                                       save_path=save_path_rnet,
                                       rnet=rnet,
                                       transform=test_transform,
+                                      norm_transform=tio.ZNormalization(masking_method=lambda x: x > 0),
                                       device=device)
 
               
