@@ -176,9 +176,9 @@ class MainDialog(QDialog):
         qimg = QImage(new_img.data, new_img.shape[1], new_img.shape[0], new_img.strides[0], QImage.Format_Grayscale8)
         self.label.setPixmap(QPixmap.fromImage(qimg))
         
-        if self.ax==0 : axis='X - Y'
-        elif self.ax==1 : axis='Y - Z'
-        elif self.ax==2 : axis='Z - X'
+        if self.ax==0 : axis='Sagittal'
+        elif self.ax==1 : axis='Coronal'
+        elif self.ax==2 : axis='Axial'
         self.label_2.setText(f'{axis} : {self.count}') #텍스트 변환 
         self.label_2.setFont(QtGui.QFont("궁서",20)) #폰트,크기 조절 
         self.label_2.setStyleSheet("Color : blue") #글자색 변환
