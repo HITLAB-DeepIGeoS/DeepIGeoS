@@ -133,17 +133,14 @@ def geodismap(sf, sb, input_np):
     iter: number of iteration for raster scanning.
     """
 
-    spacing = tio.ScalarImage(tensor=input_np).spacing
     I = np.squeeze(input_np, axis=0).transpose(2, 0, 1)
     sf = np.array(sf, dtype=np.uint8).transpose(2, 0, 1)
     sb = np.array(sb, dtype=np.uint8).transpose(2, 0, 1)
+    spacing = tio.ScalarImage(tensor=np.expand_dims(I, axis=0)).spacing
 
     with Pool(2) as p:
         fore_dist_map, back_dist_map = p.starmap(GeodisTK.geodesic3d_raster_scan, 
                                                  [(I, sf, spacing, 1, 2), (I, sb, spacing, 1, 2)])
-
-    fore_dist_map = GeodisTK.geodesic3d_raster_scan(I, sf, spacing, 1, 2)
-    back_dist_map = GeodisTK.geodesic3d_raster_scan(I, sb, spacing, 1, 2)
 
     if fore_dist_map.all():
         fore_dist_map = I
