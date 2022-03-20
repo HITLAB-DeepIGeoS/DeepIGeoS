@@ -1,9 +1,11 @@
 # :brain: DeepIGeoS
-DeepIGeoS Paper Implementation
+Implementation the DeepIGeoS Paper
 > :page_facing_up: [DeepIGeoS: A Deep Interactive Geodesic Framework for Medical Image Segmentation (2018)](https://ieeexplore.ieee.org/abstract/document/8370732)
+ 
+> additional page : [Notion page](https://www.notion.so/modulabs/HIT-LAB-783449555af449f89c0b2f2dc4a5a72b?p=9f00609e62a24d32af95a7416703119f) (in Korean :kr:) 
 
-## :pushpin: Prerequisites
-Please check environments and requirements before you start. If you need them, you should either upgrade versions or install them.
+## :mag: Prerequisites
+Please check environments and requirements before you start. If required, we recommend you to either upgrade versions or install them for smooth running.
 
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
@@ -27,13 +29,14 @@ tqdm
 PyQt5
 ```
 
-## :pushpin: Datasets
-Download BraTS 2021 dataset using `load_datasets.sh`.  
+## :film_strip: Datasets
+Download the BraTS 2021 dataset form web [BraTS 2021](https://arxiv.org/pdf/2107.02314.pdf) using `load_datasets.sh`.  
+
 ```
 $ bash load_datasets.sh
 ```
 
-## :pushpin: Train
+## :computer: Train
 
 ### ☺︎ P-Net
 ```
@@ -50,20 +53,22 @@ $ python train_rnet.py -c configs/config_rnet.json
 $ tensorboard --logdir experiments/logs/
 ```
 
-## :pushpin: Run
+## :computer: Run
 
 ### ☺︎ Simple QT Application
-We created an application that operates DeepIGeoS with mouse click interaction. Run DeepIGeoS as shown below.
+To operate DeepIGeos with simple mouse click interaction, We create a QT based application. You can just run DeepIGeoS with the main code titled 'main_deepigeos.py' as shown below.
 ```
 $ python main_deepigeos.py
 ```
 
-## :pushpin: Results
+## :dna: Results
 
-### ☺︎ With Simulated Interactions
-Result with simulated user interactions according to the following rules. Simulations were generated on three slices with the largest mis-segments in each axes: sagittal, coronal and axial.
-1. P-Net automatic segmentation result is compared with the ground truth to find mis-segmented regions.
-2. Then the user interactions on each mis-segmented region are simulated by randomly sampling n pixels in that region. (Suppose the size of one connected under-segmented or over-segmentedregion is Nm, we set n for that region to 0 if Nm < 30 and [Nm/100] otherwise)
+### ☺︎ with the Simulated Interactions
+After the simulated user interaction, the result follows rules below : 
+
+Simulations were generated on three slices with the largest mis-segments in each axes; sagittal, coronal, and axial.
+1. To find mis-segmented regions, the automatic segmentations by P-net are compared with the ground truth.
+2. Then the user interactions on the each mis-segmented region are simulated by **n** pixels, which is randomly sampled, in the region. (Suppose the size of one connected under-segmented or over-segmentedregion is **Nm**, we set **n** for that region to **0** if **Nm < 30** and **[Nm/100]** otherwise)
 
 <div>
   <img alt="Sagittal" src=./assets/sagittal.gif width="34.7%">
@@ -71,20 +76,20 @@ Result with simulated user interactions according to the following rules. Simula
   <img alt="Axial" src=./assets/axial.gif width="25%">
 </div>
 
-- Yellow border: Ground Truth Mask
-- Green area: P-Net Prediction Mask
-- Red area: R-Net Refinement Mask
+- **Yellow border** : Ground Truth Mask
+- **Green area** : P-Net Prediction Mask
+- **Red area** : R-Net Refinement Mask
 
-### ☺︎ With User Interaction
-Result with user interactions from mouse clicks.
+### ☺︎ with the User Interaction
+Results after the required user interactions are below : 
 
 (데모 영상 녹화 후 추가예정)
 
-## :pushpin: Background of DeepIGeoS
-To perform DeepIGeoS, we have studied and understood the original paper. 
+## :page_facing_up: Background of DeepIGeoS
+For the implementation of the DeepIGeoS paper, all steps, we understood and performed are described in the following subsections. 
 
 ### ☺︎ Abstract
-- A deep CNN-based interactive framework for 2D and 3D medical image segmentation
+- Consider a deep CNN-based interactive framework for the 2D and 3D medical image segmentation
 - Present a new way to combine user interactions with CNNs based on geodesic distance maps
 - Propose a resolution-preserving CNN structure which leads to a more detailed segmentation result compared with traditional CNNs with resolution loss
 - Extend the current RNN-based CRFs for segmentation so that the back-propagatable CRFs can use user interactions as hard constraints and all the parameters of potential functions can be trained in an end-to-end way.
@@ -97,6 +102,7 @@ To perform DeepIGeoS, we have studied and understood the original paper.
 </div>
 
 Two stage pipeline : P-Net(obtains automatically initial segmentation) + R-Net(refines initial segmentation w/ small # of user interactions that we encode as geodesic distance maps)
+
 - P-Net : use CNN to obtain an **initial automatic segmentation**
 - R-Net: refine the segmentation by taking as input **the original image, the initial segmentation and geodesic distance maps** based on foreground/background user interactions.
 
@@ -108,7 +114,7 @@ Two stage pipeline : P-Net(obtains automatically initial segmentation) + R-Net(r
   <p><i><a href="https://arxiv.org/abs/1502.03240" target="_blank" rel="noopener noreferrer">https://arxiv.org/abs/1502.03240</a></i></p>
 </div>
 
-The CRF-Net(f) is connected to P-Net and the CRF-Net(fu) is connected to R-Net.
+The CRF-Net(f) is connected to P-Net and also the CRF-Net(fu) is connected to R-Net.
 - CRF-Net(f): extend [CRF based on RNN](https://arxiv.org/abs/1502.03240) so that the pairwise potentials can be freeform functions.
 - CRF-Net(fu): integrate user interactions in our CRF-Net(f) in the interactive refinement context.
 - **But here CRF-Nets are not implemented for simplicity**
@@ -121,7 +127,7 @@ The CRF-Net(f) is connected to P-Net and the CRF-Net(fu) is connected to R-Net.
 </div>
 
 The interactions with the same label are converted into a distance map.
-- The euclidean distance treats each direction equally and does not take the image context into account.
+- The euclidean distance treats each direction equally and it does not take the image context into account.
 - In contrast, the geodesic distance helps to better differentiate neighboring pixels with different appearances, and improves label consistency in homogeneous regions. 
  
 
@@ -132,5 +138,5 @@ The interactions with the same label are converted into a distance map.
   <p><i><a href="https://arxiv.org/pdf/2107.02314.pdf" target="_blank" rel="noopener noreferrer">https://arxiv.org/pdf/2107.02314.pdf</a></i></p>
 </div>
 
-We only use T2-FLAIR(panel C) images in the [BraTS 2021](https://arxiv.org/pdf/2107.02314.pdf) and only segment the whole tumor.
+We only consider T2-FLAIR(panel C) images in the [BraTS 2021](https://arxiv.org/pdf/2107.02314.pdf) and segment the whole tumor.
 - The BraTS dataset describes a retrospective collection of brain tumor mpMRI scans acquired from multiple different institutions under standard clinical conditions, but with different equipment and imaging protocols, resulting in a vastly heterogeneous image quality reflecting diverse clinical practice across different institutions. Inclusion criteria comprised pathologically confirmed diagnosis and available MGMT promoter methylation status. These data have been updated, since BraTS 2020, increasing the total number of cases from 660 to 2,000.
