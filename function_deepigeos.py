@@ -70,6 +70,8 @@ def nextImage( usrId, imgs, segs, ax, count, pn, clk=(0,0)):
 
     if count >= imgs.shape[0]:
         count = imgs.shape[0]
+    elif count < 0:
+        count = 0
 
 
     if ax == 0:
@@ -93,8 +95,8 @@ def nextImage( usrId, imgs, segs, ax, count, pn, clk=(0,0)):
         elif ax == 2: 
             img = imgs[:,:,count]   
             
-        img = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        img = cv2.flip(img, 1)
+        img = np.rot90(img, 1)
+        img = np.flip(img, 1)
         img = cv2.divide(img, img.max())
         img = cv2.resize(img, (iH*2, iW*2))
         img = cv2.normalize(src=img, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
@@ -109,8 +111,8 @@ def nextImage( usrId, imgs, segs, ax, count, pn, clk=(0,0)):
         img = cv2.imread(f'../res/{usrId}/seg/{axis}/{count}.png')
         img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-    seg = cv2.rotate(seg, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    seg = cv2.flip(seg, 1)
+    seg = np.rot90(seg, 1)
+    seg = np.flip(seg, 1)
     seg = cv2.divide(seg, seg.max())
     seg[np.where(seg!=0)]=1
     seg = cv2.normalize(src=seg, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
@@ -123,10 +125,6 @@ def nextImage( usrId, imgs, segs, ax, count, pn, clk=(0,0)):
 
     return img, seg
 
-        
-def geodesic_distance_2d(I, S, lamb, iter):
-    return GeodisTK.geodesic2d_raster_scan(I, S, lamb, iter)
-
 
 def seg_reduction(int_seg):
     h, w = int_seg.shape
@@ -138,8 +136,8 @@ def seg_reduction(int_seg):
         int_seg[idx[0][i]+1, idx[1][i] +0] =1
         int_seg[idx[0][i]+1, idx[1][i] +1] =1
         
-    int_seg = cv2.rotate(int_seg, cv2.ROTATE_90_CLOCKWISE)
-    int_seg = cv2.flip(int_seg, 1)
+    int_seg = np.rot90(int_seg, 1)
+    int_seg = np.flip(int_seg, 1)
     int_seg = cv2.resize(int_seg, (int(h/2), int(w/2)), interpolation = cv2.INTER_NEAREST)
     
     return int_seg
@@ -179,7 +177,7 @@ def save_func(imgs, path, usrId):
             elif axis == 'Z':
                 int_neg_result[:,:,count] = seg_reduction(int_seg)
                 
-    int_pos_result = (int_pos_result==1) 
+    int_pos_result = (int_pos_result==1)
     int_neg_result = (int_neg_result==1)
 
     np.save(f'../res/{usrId}/result/int_pos_result.npy', int_pos_result)
