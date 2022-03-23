@@ -81,9 +81,12 @@ Simulations were generated on three slices with the largest mis-segments in each
 - **Red area** : R-Net Refinement Mask
 
 ### ☺︎ with the User Interaction
-Results after the required user interactions are below : 
+Results with user interactions are below : 
 
-(데모 영상 녹화 후 추가예정)
+https://user-images.githubusercontent.com/36390128/159619848-3d50450f-3715-4a18-aa7a-c5aa3531fd1d.mp4
+
+- **Circle point** : User interactions representing under-segmented region
+- **Square point** : User interactions representing over-segmented region
 
 ## :page_facing_up: Background of DeepIGeoS
 For the implementation of the DeepIGeoS paper, all steps, we understood and performed are described in the following subsections. 
