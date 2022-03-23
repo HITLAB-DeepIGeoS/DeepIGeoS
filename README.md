@@ -83,7 +83,7 @@ Simulations were generated on three slices with the largest mis-segments in each
 ### ☺︎ with the User Interaction
 Results with user interactions are below : 
 
-https://user-images.githubusercontent.com/36390128/159619848-3d50450f-3715-4a18-aa7a-c5aa3531fd1d.mp4
+https://user-images.githubusercontent.com/36390128/159625917-1528c01b-fd4a-4fcc-9f20-f6d070fd4822.mp4
 
 - **Circle point** : User interactions representing under-segmented region
 - **Square point** : User interactions representing over-segmented region
