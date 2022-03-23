@@ -85,8 +85,14 @@ Results with user interactions are below :
 
 https://user-images.githubusercontent.com/36390128/159625917-1528c01b-fd4a-4fcc-9f20-f6d070fd4822.mp4
 
-- **Circle point** : User interactions representing under-segmented region
-- **Square point** : User interactions representing over-segmented region
+1. Click `LOAD IMG` button to load image
+2. Click `P-NET` button to operate automatic segmentation
+3. Check the automatic segmentation results
+4. Point where to refine results by mouse click 
+    - Circle : Under-segmented region
+    - Square : Over-segmented region
+5. Click `R-NET` button to operate refinement
+6. Check refined segmentation results
 
 ## :page_facing_up: Background of DeepIGeoS
 For the implementation of the DeepIGeoS paper, all steps, we understood and performed are described in the following subsections. 
