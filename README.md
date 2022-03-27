@@ -97,6 +97,16 @@ https://user-images.githubusercontent.com/36390128/159625917-1528c01b-fd4a-4fcc-
 5. Click `R-NET` button to operate refinement
 6. Check refined segmentation results
 
+<div>
+  <img alt="pnet_mask" src=https://user-images.githubusercontent.com/36390128/160296620-2df6db14-cb23-4538-9850-0ffed412e05f.png width="27%">
+  <img alt="rnet_mask" src=https://user-images.githubusercontent.com/36390128/160296622-d26d171d-e7c4-4917-a7f9-5ae8564f8137.png width="27%">
+  <img alt="gt_mask" src=https://user-images.githubusercontent.com/36390128/160296615-f2fca9cc-5126-4eaa-83c7-07b81095119f.png width="27%">
+</div>
+
+- **Green Volume** : P-Net Prediction Mask
+- **Red Volume** : R-Net Refinement Mask
+- **Blue Volume** : Ground Truth Mask
+
 ## :page_facing_up: Background of DeepIGeoS
 For the implementation of the DeepIGeoS paper, all steps, we understood and performed are described in the following subsections. 
 
